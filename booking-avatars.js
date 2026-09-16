@@ -1,0 +1,4 @@
+(()=>{
+const old=window.chooseBarber;
+window.chooseBarber=async function(){B.step=1;const bs=await barbers(),opts=[{id:null,name:'Any barber',title:'First available',avatar_url:null},...bs];const initials=n=>(n||'A').split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase();setPanel(`<span class="eyebrow">Step 2 of 5</span><h2>Choose your barber</h2><p>${esc(B.service.name)} · ${money(B.service.price_pence)}</p><div class="choices barber-choices">${opts.map(x=>`<button class="choice barber-choice">${x.avatar_url?`<img class="booking-barber-avatar" src="${esc(x.avatar_url)}" alt="${esc(x.name)}">`:`<span class="booking-barber-avatar fallback">${x.id?initials(x.name):'ANY'}</span>`}<span><b>${esc(x.name)}</b><small>${esc(x.title)}</small></span></button>`).join('')}</div>`);document.querySelectorAll('.choice').forEach((b,i)=>b.onclick=()=>{B.barber=opts[i];chooseDate()})};
+})();
