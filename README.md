@@ -1,14 +1,23 @@
-# HStudio Booking System
+# North & Co. Barber Booking Sales Demo
 
-Production-ready starter for HStudio. Public booking, customer accounts, self-service booking management, staff/admin auth, availability, time off, services and staff are backed by Supabase. Stripe Checkout and notifications are implemented as Supabase Edge Functions.
+Interactive fictional barber-shop demonstration built from the original HStudio booking system.
 
-## Deploy
-1. Create/connect a Supabase project.
-2. Run `supabase/schema.sql` in the SQL editor.
-3. Create Hayd and Joe auth users, then run the commented staff mapping statements at the bottom of schema.sql with their UUIDs.
-4. Edit `config.js` with your Supabase project URL and publishable key (safe for browser use with RLS). Never put a secret/service-role key in `config.js`.
-5. Deploy the folder to Cloudflare Pages / Netlify / any static host.
-6. Deploy Edge Functions from `supabase/functions`. Add secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `RESEND_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`.
-7. In Stripe create a webhook for Checkout completion if you want payment status reconciliation beyond the included success flow.
+The `main` branch is the generic North & Co. sales demo. It includes the public website, live booking journey, customer account experience and staff/owner management dashboard backed by the demo Supabase project.
 
-Without provider credentials the booking engine, availability and admin system still work; online payment/email/SMS require those provider keys.
+## Important
+
+- North & Co. is fictional. Demo names, customers, appointments and shop information must remain fictional.
+- Do not enter real customer or payment data into the demo.
+- Keep search engines out of the demo (`noindex` / robots disallow).
+- The original HStudio code is preserved separately on `hstudio-archive-2026-09-16`. Do not modify that archive branch when evolving the sales demo.
+- `config.js` contains only the browser-safe Supabase publishable key. Never place a secret/service-role key in frontend code.
+
+## Demo areas
+
+- `index.html` — North & Co. sales-demo homepage
+- `booking.html` — interactive customer booking journey
+- `account.html` — customer account / booking management
+- `staff-login.html` — demo staff sign-in
+- `admin.html` — owner/barber dashboard
+
+The customer and staff experiences share the same live demo backend so changes to services, availability, appointments and shop configuration can be demonstrated across both sides of the product.
