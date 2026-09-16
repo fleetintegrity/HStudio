@@ -1,5 +1,2 @@
 User-agent: *
-Allow: /
-Disallow: /admin.html
-Disallow: /staff-login.html
-Sitemap: https://hstudiowinchcombe.co.uk/sitemap.xml
+Disallow: /
