@@ -1,1 +1,26 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HStudio Admin</title><link rel="stylesheet" href="style.css"></head><body><div class="admin-layout"><aside class="sidebar"><img src="assets/logo.jpeg"><button class="active" data-view="diary">Diary</button><button data-view="bookings">Bookings</button><button data-view="timeoff">Block time</button><button data-view="services">Services</button><button data-view="staff">Barbers</button><button data-view="settings">Settings</button><button onclick="signOut()">Sign out</button></aside><main class="admin-main"><div id="admin"></div></main></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script src="app.js"></script><script>startAdmin()</script></body></html>
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HStudio Admin</title><link rel="stylesheet" href="style.css"></head><body><div class="admin-layout"><aside class="sidebar"><img src="assets/logo.jpeg"><button class="active" data-view="diary">Diary</button><button data-view="bookings">Bookings</button><button data-view="timeoff">Block time</button><button data-view="services" data-owner-only>Services</button><button data-view="staff" data-owner-only>Barbers</button><button data-view="settings" data-owner-only>Settings</button><button onclick="signOut()">Sign out</button></aside><main class="admin-main"><div id="admin"></div></main></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script src="app.js"></script><script>
+(async()=>{
+  const me=await requireStaff();
+  if(!me)return;
+  const owner=me.role==='owner'||me.role==='admin';
+  if(!owner){
+    document.querySelectorAll('[data-owner-only]').forEach(x=>x.remove());
+    const timeBtn=document.querySelector('[data-view="timeoff"]');
+    if(timeBtn)timeBtn.textContent='My time off';
+    const lockTimeOff=()=>setTimeout(()=>{
+      const form=document.querySelector('#blockform');
+      if(!form)return;
+      const sel=form.querySelector('select[name="barber"]');
+      if(sel&&me.barber_id){
+        sel.innerHTML=`<option value="${me.barber_id}">${(me.barbers&&me.barbers.name)||'My availability'}</option>`;
+        sel.value=me.barber_id;
+        sel.disabled=true;
+        const hidden=document.createElement('input');hidden.type='hidden';hidden.name='barber';hidden.value=me.barber_id;sel.after(hidden);
+      }
+      const h=form.closest('.admin-main')?.querySelector('h1');if(h)h.textContent='My time off';
+    },250);
+    if(timeBtn)timeBtn.addEventListener('click',lockTimeOff);
+  }
+  startAdmin();
+})();
+</script></body></html>
