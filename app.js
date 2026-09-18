@@ -1,5 +1,41 @@
 const CFG=window.HSTUDIO_CONFIG||{},sb=supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_PUBLISHABLE_KEY);
 const money=p=>'£'+(p/100).toFixed(2),esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+
+function demoSessionId(){
+  const key='northco_demo_session_id';
+  let id=sessionStorage.getItem(key);
+  if(id)return id;
+  id=(crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,x=>(x^crypto.getRandomValues(new Uint8Array(1))[0]&15>>x/4).toString(16)));
+  sessionStorage.setItem(key,id);
+  return id;
+}
+function safeReferrer(){
+  if(!document.referrer)return null;
+  try{
+    const u=new URL(document.referrer);
+    return u.origin+u.pathname;
+  }catch(_){return null}
+}
+async function trackDemoEvent(name='page_view'){
+  try{
+    const q=new URLSearchParams(location.search);
+    await sb.rpc('track_demo_event',{
+      p_event_name:name,
+      p_page_path:location.pathname,
+      p_session_id:demoSessionId(),
+      p_referrer:safeReferrer(),
+      p_utm_source:q.get('utm_source'),
+      p_utm_medium:q.get('utm_medium'),
+      p_utm_campaign:q.get('utm_campaign')
+    });
+  }catch(_){}
+}
+window.trackDemoEvent=trackDemoEvent;
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',()=>trackDemoEvent('page_view'),{once:true});
+}else{
+  trackDemoEvent('page_view');
+}
 let B={step:0,service:null,barber:null,date:null,slot:null,payment:'shop',customer:{}};
 function setPanel(h){document.querySelector('#booking-panel').innerHTML=h;document.querySelectorAll('.stepdot').forEach((x,i)=>x.classList.toggle('on',i<=B.step))}
 async function services(){let {data,error}=await sb.from('services').select('*').eq('active',true).order('sort_order');if(error)throw error;return data}
@@ -16,7 +52,7 @@ async function confirmBooking(){let msg=document.querySelector('#bookmsg'),btn=d
 async function loadAccount(){let el=document.querySelector('#account'),p=new URLSearchParams(location.search),id=p.get('id'),token=p.get('token'),{data:{user}}=await sb.auth.getUser();if(id&&token){let {data,error}=await sb.rpc('get_guest_booking',{p_booking_id:id,p_token:token});if(error){el.innerHTML=`<p class="error">${esc(error.message)}</p>`;return}renderBookings(el,data?[data]:[],token);return}if(!user){el.innerHTML=`<div class="panel"><h2>Sign in</h2><form id="custlogin" class="formgrid"><label class="field full">Email<input type="email" name="email" required></label><label class="field full">Password<input type="password" name="password" required minlength="6"></label><button class="btn field full">Sign in</button><button type="button" id="signup" class="btn ghost field full">Create account</button><p id="amsg"></p></form></div>`;let f=document.querySelector('#custlogin');f.onsubmit=async e=>{e.preventDefault();let x=new FormData(f),r=await sb.auth.signInWithPassword({email:x.get('email'),password:x.get('password')});document.querySelector('#amsg').textContent=r.error?r.error.message:'';if(!r.error)location.reload()};document.querySelector('#signup').onclick=async()=>{let x=new FormData(f),r=await sb.auth.signUp({email:x.get('email'),password:x.get('password')});document.querySelector('#amsg').textContent=r.error?r.error.message:'Account created. Check your email if confirmation is enabled.'};return}let {data,error}=await sb.from('bookings').select('*,services(name,price_pence),barbers(name)').eq('customer_id',user.id).order('starts_at');if(error)el.innerHTML=`<p class="error">${esc(error.message)}</p>`;else renderBookings(el,data||[],null)}
 function renderBookings(el,data,token){el.innerHTML=data.length?data.map(x=>`<div class="card" style="margin-bottom:12px"><h3>${esc(x.services?.name||x.service_name)}</h3><p>${new Date(x.starts_at).toLocaleString('en-GB',{dateStyle:'full',timeStyle:'short',timeZone:'Europe/London'})} · ${esc(x.barbers?.name||x.barber_name)}</p><p>${esc(x.status)}</p>${x.status==='confirmed'?`<button class="btn ghost" onclick="cancelBooking('${x.id}','${token||''}')">Cancel appointment</button>`:''}</div>`).join(''):'<div class="notice">No bookings found.</div>'}
 async function cancelBooking(id,token){if(!confirm('Cancel this appointment? The 3-hour cancellation policy applies.'))return;let {error}=await sb.rpc('cancel_booking',{p_booking_id:id,p_token:token||null});if(error)alert(error.message);else location.reload()}
-async function staffLogin(){document.querySelector('#staff-form').onsubmit=async e=>{e.preventDefault();let r=await sb.auth.signInWithPassword({email:email.value,password:password.value});if(r.error){msg.textContent=r.error.message;return}let p=await sb.from('staff').select('user_id').eq('user_id',r.data.user.id).eq('active',true).maybeSingle();if(!p.data){await sb.auth.signOut();msg.textContent='This account is not authorised for HStudio admin.';return}location.href='admin.html'}}
+async function staffLogin(){document.querySelector('#staff-form').onsubmit=async e=>{e.preventDefault();let r=await sb.auth.signInWithPassword({email:email.value,password:password.value});if(r.error){msg.textContent=r.error.message;return}let p=await sb.from('staff').select('user_id').eq('user_id',r.data.user.id).eq('active',true).maybeSingle();if(!p.data){await sb.auth.signOut();msg.textContent='This account is not authorised for HStudio admin.';return}await trackDemoEvent('staff_login_success');location.href='admin.html'}}
 async function requireStaff(){let {data:{user}}=await sb.auth.getUser();if(!user){location.href='staff-login.html';return null}let {data}=await sb.from('staff').select('*,barbers(*)').eq('user_id',user.id).eq('active',true).maybeSingle();if(!data){location.href='staff-login.html';return null}return data}
 async function startAdmin(){let me=await requireStaff();if(!me)return;document.querySelectorAll('.sidebar button[data-view]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.sidebar button').forEach(x=>x.classList.remove('active'));b.classList.add('active');adminView(b.dataset.view,me)});adminView('diary',me)}
 async function adminView(v,me){let el=document.querySelector('#admin');if(v==='diary'||v==='bookings'){let q=sb.from('bookings').select('*,services(name,price_pence),barbers(name)').order('starts_at');if(v==='diary'){let a=new Date();a.setHours(0,0,0,0);let z=new Date(a);z.setDate(z.getDate()+1);q=q.gte('starts_at',a.toISOString()).lt('starts_at',z.toISOString())}let {data,error}=await q;if(error){el.innerHTML=`<p class="error">${esc(error.message)}</p>`;return}let active=(data||[]).filter(x=>x.status==='confirmed'),rev=active.reduce((n,x)=>n+(x.services?.price_pence||0),0);el.innerHTML=`<h1>${v==='diary'?'Diary':'Bookings'}</h1><div class="stats"><div class="stat"><small>Appointments</small><b>${active.length}</b></div><div class="stat"><small>Booked value</small><b>${money(rev)}</b></div></div><div class="tablewrap"><table><thead><tr><th>Date/time</th><th>Customer</th><th>Service</th><th>Barber</th><th>Status</th></tr></thead><tbody>${(data||[]).map(x=>`<tr><td>${new Date(x.starts_at).toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/London'})}</td><td>${esc(x.guest_name||'Account customer')}<br><small>${esc(x.guest_phone||'')}</small></td><td>${esc(x.services?.name)}</td><td>${esc(x.barbers?.name)}</td><td>${esc(x.status)}</td></tr>`).join('')}</tbody></table></div>`}else if(v==='timeoff'){let bs=await barbers();let {data}=await sb.from('time_blocks').select('*,barbers(name)').order('starts_at',{ascending:false});el.innerHTML=`<h1>Block time</h1><form id="blockform" class="panel formgrid"><label class="field">Barber<select name="barber"><option value="">Whole shop</option>${bs.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></label><label class="field">Reason<input name="reason" value="Unavailable"></label><label class="field">From<input type="datetime-local" name="from" required></label><label class="field">Until<input type="datetime-local" name="to" required></label><button class="btn field full">Block availability</button></form><div class="tablewrap"><table>${(data||[]).map(x=>`<tr><td>${esc(x.barbers?.name||'Whole shop')}</td><td>${new Date(x.starts_at).toLocaleString()}</td><td>${new Date(x.ends_at).toLocaleString()}</td><td>${esc(x.reason)}</td></tr>`).join('')}</table></div>`;document.querySelector('#blockform').onsubmit=async e=>{e.preventDefault();let f=new FormData(e.target),r=await sb.from('time_blocks').insert({barber_id:f.get('barber')||null,reason:f.get('reason'),starts_at:new Date(f.get('from')).toISOString(),ends_at:new Date(f.get('to')).toISOString()});if(r.error)alert(r.error.message);else adminView('timeoff',me)}}else if(v==='services'){let data=await services();el.innerHTML=`<h1>Services</h1><div class="tablewrap"><table><thead><tr><th>Service</th><th>Minutes</th><th>Price</th><th>Live</th><th></th></tr></thead><tbody>${data.map(x=>`<tr><td><input id="n${x.id}" value="${esc(x.name)}"></td><td><input id="d${x.id}" type="number" value="${x.duration_minutes}" style="width:90px"></td><td><input id="p${x.id}" type="number" step=".01" value="${(x.price_pence/100).toFixed(2)}" style="width:100px"></td><td><input id="a${x.id}" type="checkbox" ${x.active?'checked':''}></td><td><button class="btn ghost" onclick="saveService('${x.id}')">Save</button></td></tr>`).join('')}</tbody></table></div>`}else if(v==='staff'){let data=await barbers();el.innerHTML=`<h1>Barbers</h1><div class="grid">${data.map(x=>`<div class="card"><h3>${esc(x.name)}</h3><p>${esc(x.title)}</p></div>`).join('')}</div>`}else el.innerHTML=`<h1>Settings</h1><div class="card"><h3>HStudio</h3><p>9 North Street, Winchcombe, Cheltenham GL54 4LH</p><p>07561 885972 · @hstudiowinchcombe</p><p><b>Cancellation:</b> up to 3 hours before the appointment.</p></div>`}
